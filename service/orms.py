@@ -1,9 +1,12 @@
+import time 
 import pyodbc
+import aiohttp
 import pandas as pd
 from hdbcli import dbapi
 from fuzzywuzzy import fuzz
 from sqlalchemy import create_engine
-from models.connection_models import ExcelConnectionModel, SapHanaConnectionModel, SQLServerConnectionModel
+from datetime import datetime, timedelta
+from models.connection_models import ExcelConnectionModel, SapHanaConnectionModel, SQLServerConnectionModel, APIConnectionModel
 
 class ExcelService():
     def __init__(self, connectionModel:ExcelConnectionModel):
@@ -107,17 +110,90 @@ class SqlServerService():
         finally:
             conn.close()
             
-    def insert_data_to_sql(self, df, query):
+    def insert_data_to_sql(self, df, table, batch_size=5000):
+
+        placeholders = ', '.join(['?'] * len(df.columns))
+        columns = ', '.join(df.columns)
+        query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+
         conn = self._get_connection()
         cursor = conn.cursor()
 
         data = [tuple(row) for row in df.to_numpy()]
+        total = len(data)
+        inicio_tempo = time.time()
+        print(f"Left: {total}. Tempo acumulado: {time.time()-inicio_tempo:.2f} segundos")
 
         try:
-            cursor.executemany(query, data)
-            conn.commit()
+            for i in range(0, len(data), batch_size):
+                batch = data[i:i + batch_size]
+                cursor.executemany(query, batch)
+                total = total - len(batch)
+                print(f"Step {i + batch_size}. Left: {total}  Tempo acumulado: {time.time()-inicio_tempo:.2f} segundos")
+                conn.commit()
         except Exception as e:
             print(f"Erro ao inserir dados: {e}")
         finally:
             cursor.close()
             conn.close()
+            
+            
+class APIService():
+    def __init__(self, connectionModel:APIConnectionModel):
+        self._connectionModel = connectionModel
+    
+    async def read_api(self) -> pd.DataFrame:
+        async with aiohttp.ClientSession() as session:
+            payload = await self._fetch_paginated_data(
+                session=session, base_url=self._connectionModel.url, ref_date=datetime.today() - timedelta(days=4)
+            )
+
+        return payload        
+    
+    
+    async def _fetch_paginated_data(self, session, base_url, ref_date, limit=100, initial_page=0):
+        today = datetime.today()
+        start_time_total = time.time()
+        
+        all_items = []
+
+        while ref_date <= today:
+            current_page = initial_page
+            while True:
+
+                start_time = time.time()
+
+                url = f"{base_url}?dataInicial={ref_date.strftime('%d/%m/%Y')}&inicio={current_page}&limite={limit}"
+                print(f"Buscando página {current_page//100} data: {ref_date.strftime('%d/%m')} na URL: {url}")
+                
+                try:
+                    data = await self._fetch_data(session, url)
+                except Exception as e:
+                    print(f"Erro ao buscar dados: {e}")
+                    break
+
+                itens = data.get('objeto', {}).get('itens', [])
+                
+                if not itens:
+                    print(f"Sem mais dados na página {current_page//100}.")
+                    break
+
+                all_items.extend(itens)
+
+                end_time = time.time()
+                spent_time = end_time - start_time
+                print(f"Encontrados {len(itens)} itens na página {current_page//100}. Tempo gasto: {spent_time:.2f} segundos. Tempo gasto total: {end_time-start_time_total:.2f} segundos")
+                
+                current_page += limit
+    
+            ref_date += timedelta(days=1)
+
+        print(f"Total de itens encontrados: {len(all_items)}")
+        return all_items
+    
+     
+    async def _fetch_data(self, session, url):
+        async with session.get(url) as response:
+            if response.status != 200:
+                raise Exception(f"Erro na requisição: {response.status}")
+            return await response.json()

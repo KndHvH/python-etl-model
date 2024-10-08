@@ -13,22 +13,12 @@ class EtlFlow:
         
         self._service['target'].execute_query('TRUNCATE TABLE A')
         
+        # api_data = asyncio.run(self._service['source'].read_api())
+        # df = pd.DataFrame(api_data)
+        
         # df = self._service['source'].read_excel()
-        df = self._service['source'].read_sql('SELECT * FROM A')
+        df = self._service['source'].read_sql('SELECT * FROM B')
         
         df = df.astype(str).where(pd.notnull(df), None)
     
-        
-        insert_query = f"""
-            INSERT INTO A(
-                A1,
-                A2,
-                A3,
-                A4,
-                A5,
-                A6
-                )
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            """
-            
-        self._service['target'].insert_data_to_sql(df, insert_query)
+        self._service['target'].insert_data_to_sql(df, 'A')

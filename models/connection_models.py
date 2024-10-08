@@ -74,3 +74,11 @@ class ExcelConnectionModel():
     @property
     def dtype(self):
         return self._dtype
+    
+class APIConnectionModel():
+    def __init__(self, url):
+        self._url = url
+        
+    @property
+    def url(self):
+        return self._url
