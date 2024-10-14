@@ -59,7 +59,7 @@ class SapHanaService():
             if cursor.description:
                 return cursor.fetchall()
         except Exception as e:
-            print(e)
+            logging.error(e)
         finally:
             cursor.close()
             conn.close()
@@ -69,7 +69,7 @@ class SapHanaService():
             conn = self._get_connection()
             return pd.read_sql(query, conn)
         except Exception as e:
-            print(e)
+            logging.error(e)
         finally:
             conn.close()
                 
@@ -96,7 +96,7 @@ class SqlServerService():
             if cursor.description:
                 return cursor.fetchall()
         except Exception as e:
-            print("Error:",e)
+            logging.error("Error:",e)
         finally:
             conn.close()
                 
@@ -106,7 +106,7 @@ class SqlServerService():
             conn = self._get_connection()
             return pd.read_sql(query, conn)
         except Exception as e:
-            print(e)
+            logging.error(e)
         finally:
             conn.close()
             
@@ -122,17 +122,17 @@ class SqlServerService():
         data = [tuple(row) for row in df.to_numpy()]
         total = len(data)
         inicio_tempo = time.time()
-        print(f"Left: {total}. Tempo acumulado: {time.time()-inicio_tempo:.2f} segundos")
+        logging.info(f"Left: {total}. Tempo acumulado: {time.time()-inicio_tempo:.2f} segundos")
 
         try:
             for i in range(0, len(data), batch_size):
                 batch = data[i:i + batch_size]
                 cursor.executemany(query, batch)
                 total = total - len(batch)
-                print(f"Step {i + batch_size}. Left: {total}  Tempo acumulado: {time.time()-inicio_tempo:.2f} segundos")
+                logging.info(f"Step {i + batch_size}. Left: {total}  Tempo acumulado: {time.time()-inicio_tempo:.2f} segundos")
                 conn.commit()
         except Exception as e:
-            print(f"Erro ao inserir dados: {e}")
+            logging.error(f"Erro ao inserir dados: {e}")
         finally:
             cursor.close()
             conn.close()
@@ -164,31 +164,31 @@ class APIService():
                 start_time = time.time()
 
                 url = f"{base_url}?dataInicial={ref_date.strftime('%d/%m/%Y')}&inicio={current_page}&limite={limit}"
-                print(f"Buscando página {current_page//100} data: {ref_date.strftime('%d/%m')} na URL: {url}")
+                logging.info(f"Buscando página {current_page//100} data: {ref_date.strftime('%d/%m')} na URL: {url}")
                 
                 try:
                     data = await self._fetch_data(session, url)
                 except Exception as e:
-                    print(f"Erro ao buscar dados: {e}")
+                    logging.error(f"Erro ao buscar dados: {e}")
                     break
 
                 itens = data.get('objeto', {}).get('itens', [])
                 
                 if not itens:
-                    print(f"Sem mais dados na página {current_page//100}.")
+                    logging.info(f"Sem mais dados na página {current_page//100}.")
                     break
 
                 all_items.extend(itens)
 
                 end_time = time.time()
                 spent_time = end_time - start_time
-                print(f"Encontrados {len(itens)} itens na página {current_page//100}. Tempo gasto: {spent_time:.2f} segundos. Tempo gasto total: {end_time-start_time_total:.2f} segundos")
+                logging.info(f"Encontrados {len(itens)} itens na página {current_page//100}. Tempo gasto: {spent_time:.2f} segundos. Tempo gasto total: {end_time-start_time_total:.2f} segundos")
                 
                 current_page += limit
     
             ref_date += timedelta(days=1)
 
-        print(f"Total de itens encontrados: {len(all_items)}")
+        logging.info(f"Total de itens encontrados: {len(all_items)}")
         return all_items
     
      

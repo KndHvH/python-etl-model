@@ -8,9 +8,13 @@ pandas = "*"
 pyodbc = "*"
 hdbcli = "*"
 fuzzywuzzy = "*"
+python-levenshtein = "*"
 sqlalchemy = "*"
+openpyxl = "*"
 
 [dev-packages]
+pytest = "*"
+pytest-cov = "*"    
 
 [requires]
-python_version = "3.12"
+python_version = "*"

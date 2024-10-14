@@ -1,10 +1,18 @@
+import logging
 import os
 from dotenv import load_dotenv
-from service.orms import ExcelService, SapHanaService, SqlServerService
-from models.connection_models import ExcelConnectionModel,SapHanaConnectionModel, SQLServerConnectionModel
+from service.orms import *
+from models.connection_models import *
 from service.etl_flow import EtlFlow
 
 load_dotenv()
+
+logging.basicConfig(
+    filename='logs/etl.log',
+    filemode='a',
+    level=logging.INFO, 
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 def main():
     
@@ -14,6 +22,12 @@ def main():
             header=2,
             usecols="B:F",
             dtype=str
+        )
+    )
+    
+    api_service = APIService(
+        connectionModel=APIConnectionModel(
+            url=os.getenv("API_URL")
         )
     )
     
@@ -40,4 +54,8 @@ def main():
     etlflow.run()
 
 if __name__ == '__main__':
-   main()
+    try:
+        logging.info("Iniciando Processo de ETL")
+        main()
+    except Exception as e:
+        logging.error(f"Erro na execução do Processo: {e}")
